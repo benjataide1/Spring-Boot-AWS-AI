@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+
+    <!--
+       PARENT — Spring Boot BOM (Bill of Materials)
+       ─────────────────────────────────────────────
+       Al heredar del parent de Spring Boot, él gestiona automáticamente
+       las versiones de TODAS sus dependencias.
+
+       Sin parent: tenés que saber que Spring MVC 6.1.4 es compatible con
+       Jackson 2.16.1, que es compatible con Tomcat 10.1.19...
+       (conflictos de versiones: el peor dolor de cabeza de Java)
+
+       Con parent: solo elegís la versión de Spring Boot (3.3.5)
+       y él sincroniza todo lo demás. ✅
+   -->
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.6</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+
+    <!--     Identidad del Proyecto-->
+    <groupId>com.app</groupId>
+    <artifactId>smartdoc</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>smartdoc</name>
+    <description>AI Platflorm - Documents Analisis - AI/AWS</description>
+    <url/>
+    <licenses>
+        <license/>
+    </licenses>
+    <developers>
+        <developer/>
+    </developers>
+    <scm>
+        <connection/>
+        <developerConnection/>
+        <tag/>
+        <url/>
+    </scm>
+    <properties>
+        <java.version>21</java.version>
+    </properties>
+
+    <!--*
+         dependencyManagement — Gestión centralizada de versiones
+         ─────────────────────────────────────────────────────────
+         DIFERENCIA CLAVE con <dependencies>:
+           dependencyManagement → DECLARA versiones pero NO descarga nada
+           dependencies         → SÍ descarga las librerías
+
+         Acá metemos los BOMs de Spring AI y AWS SDK para que
+         sus dependencias no necesiten declarar versión.
+     -->
+    <dependencyManagement>
+        <dependencies>
+            <!--!
+                BOM de Spring AI
+                Define las versiones de TODAS las librerías de Spring AI.
+                Sin esto, tendrías que poner <version> en cada dependencia de AI.
+            -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>2.0.0-M6</version>
+                <type>pom</type>    <!-- type pom indica que es un BOM, no una librería -->
+                <scope>import</scope> <!-- import: hereda las versiones de este BOM -->
+            </dependency>
+
+            <!--!
+                BOM de AWS SDK para Java v2
+                El SDK de AWS tiene MUCHAS dependencias (S3, DynamoDB, Lambda, etc.)
+                El BOM sincroniza todas esas versiones para que sean compatibles entre sí.
+            -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.20.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+
+    </dependencyManagement>
+
+    <dependencies>
+
+        <!-- ================================================================ -->
+        <!-- ! SPRING BOOT — EL NÚCLEO                                         -->
+        <!-- ================================================================ -->
+
+
+        <!--
+            spring-boot-starter-web
+            El starter más importante para APIs REST.
+            Un "starter" agrupa varias librerías relacionadas.
+            Incluye automáticamente:
+              - Spring MVC: @RestController, @GetMapping, @PostMapping, etc.
+              - Tomcat: el servidor web (corre en el puerto 8080)
+              - Jackson: convierte objetos Java ↔ JSON automáticamente
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-webflux
+            Incluye: Project Reactor (Flux, Mono), servidor Netty reactivo.
+            Necesario para: streaming de respuestas AI con Flux<String>.
+            Se puede usar junto con starter-web sin problema — no reemplaza a Tomcat.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!--
+           spring-boot-starter-data-jpa
+           Incluye: Hibernate (ORM), Spring Data (repositorios), transacciones.
+           Permite: @Entity, @Repository, JpaRepository<T, ID>.
+           Simplifica enormemente el acceso a base de datos relacionales.
+       -->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-validation
+            Incluye: Bean Validation (Jakarta), Hibernate Validator.
+            Permite: @NotBlank, @Size, @Email, @Min, @Max en DTOs.
+            @Valid en @RequestBody activa estas validaciones automáticamente.
+        -->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+           spring-boot-starter-cache
+           Incluye: Spring Cache abstraction.
+           Permite: @Cacheable, @CacheEvict, @CachePut en métodos.
+           Evita llamadas repetidas a la API de AI (que cuestan dinero y tiempo).
+       -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!--
+           spring-boot-starter-aop
+           Programación Orientada a Aspectos — requerida para que @Cacheable y @CacheEvict funcionen.
+           Spring usa proxies AOP para interceptar llamadas a métodos anotados.
+           Analogy: es como un "guardia de seguridad" que intercepta el llamado al método
+           y decide si ejecutarlo o devolver el resultado cacheado.
+           También usada por @Transactional y @Scheduled internamente.
+       -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!--
+            spring-boot-starter-actuator
+            Expone endpoints HTTP de monitoreo:
+              /actuator/health  → ¿está viva la app?
+              /actuator/metrics → métricas de JVM, HTTP, etc.
+              /actuator/info    → información del build
+            En producción se conecta a Prometheus/Grafana para dashboards.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+
+        <!--
+           spring-boot-starter-security
+           Framework de seguridad de Spring Boot.
+           En cuanto está en el classpath, TODAS las rutas requieren autenticación
+           (por eso necesitamos SecurityConfig para configurar las rutas públicas).
+           Incluye: filtros de seguridad, contexto de autenticación, CSRF, etc.
+       -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
+           jjwt-api / jjwt-impl / jjwt-jackson
+           Librería para trabajar con JWT (JSON Web Tokens).
+           jjwt-api:     las interfaces y clases principales (para compilar)
+           jjwt-impl:    la implementación (necesaria en runtime)
+           jjwt-jackson: integración con Jackson para parsear los claims (runtime)
+       -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            spring-boot-devtools
+            Solo activo en desarrollo, NO en producción.
+            Hot reload: cuando cambiás el código, la app se reinicia sola.
+            scope=runtime: solo cuando la app corre, no al compilar.
+            optional=true: no se propaga a otros proyectos.
+        -->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ================================================================ -->
+        <!--! BASE DE DATOS                                                    -->
+        <!-- ================================================================ -->
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.projectlombok</groupId>
+                                    <artifactId>lombok</artifactId>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.projectlombok</groupId>
+                                    <artifactId>lombok</artifactId>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
