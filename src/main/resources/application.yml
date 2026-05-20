@@ -1,0 +1,228 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# application.yml — Configuración principal de SmartDoc AI Platform
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Spring Boot lee este archivo automáticamente al arrancar.
+# Todo lo que esté acá puede cambiar sin tocar el código Java.
+# Esto se llama "Externalized Configuration" — buena práctica de la industria.
+#
+# YAML usa indentación con ESPACIOS (nunca tabs) para la jerarquía.
+# Si te equivocás en un espacio, la app no levanta.
+#
+# Las propiedades se leen en Java con:
+#   @Value("${aws.region}")  → inyecta el valor de aws.region
+#   @ConfigurationProperties → mapea grupos completos a objetos Java
+#
+# ⚠️ NUNCA subas este archivo con API keys o passwords reales a git.
+#    Usá variables de entorno en producción:
+#    La propiedad ${VARIABLE_DE_ENTORNO:valorPorDefecto} lee la variable del SO,
+#    y si no existe, usa el valor por defecto.
+
+server:
+  # Puerto donde escucha la API REST
+  port: 8080
+
+spring:
+  application:
+    # Nombre de la app (aparece en los logs al arrancar y en Actuator /info)
+    name: smartdoc-ai-platform
+
+  # ─────────────────────────────────────────────────────────────────────────
+  #! BASE DE DATOS — PostgreSQL con pgvector
+  # ─────────────────────────────────────────────────────────────────────────
+
+  datasource:
+    # URL de conexión JDBC
+    # Formato: jdbc:postgresql://HOST:PUERTO/NOMBRE_BASE_DE_DATOS
+    # En desarrollo: apunta a Docker local (levantado con docker-compose)
+    # En producción: apunta a AWS RDS (lo configuramos con variable de entorno)
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/smartdoc}
+
+    # Usuario de la base de datos
+    username: ${DATABASE_USERNAME:smartdoc}
+
+    # Contraseña (NUNCA hardcodear en producción — usar variable de entorno)
+    password: ${DATABASE_PASSWORD:smartdoc123}
+
+    # Driver JDBC — Spring Boot lo detecta automáticamente del classpath,
+    # pero es buena práctica declararlo explícitamente
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # ddl-auto controla qué hace Hibernate con el esquema de la DB al arrancar:
+      #   create:      borra todo y recrea el esquema (desarrollo inicial)
+      #   update:      actualiza el esquema sin borrar datos (desarrollo general)
+      #   validate:    solo verifica que el esquema coincide con las entidades
+      #   none:        no hace nada (USAR EN PRODUCCIÓN)
+      # create-drop: crea al arrancar y borra al apagar (útil para tests)
+      ddl-auto: update  # cambiá a "none" en producción y usá Flyway/Liquibase
+
+    # Mostrar las queries SQL en los logs (útil para debug)
+    # Desactivar en producción (verbose y lento)
+    show-sql: true
+
+    properties:
+      hibernate:
+        # Dialect de PostgreSQL — le dice a Hibernate que genere SQL de Postgres
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Formatea el SQL en los logs para que sea legible
+        format_sql: true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  #! CACHE — Caffeine (cache en memoria de alto rendimiento)
+  # ─────────────────────────────────────────────────────────────────────────
+
+  cache:
+    # type: caffeine indica que usamos Caffeine como implementación de caché
+    # Sin esta línea, Spring usa el caché "simple" (no óptimo para producción)
+    type: caffeine
+    caffeine:
+      # spec: configura el comportamiento del caché
+      # maximumSize=500: máximo 500 entradas en memoria
+      # expireAfterWrite=60m: cada entrada expira 60 minutos después de escribirse
+      # Esto evita que los resúmenes de documentos queden en caché para siempre
+      spec: maximumSize=500,expireAfterWrite=60m
+
+  # ─────────────────────────────────────────────────────────────────────────
+  #! VECTOR STORE — pgvector (extensión de PostgreSQL para embeddings)
+  # ─────────────────────────────────────────────────────────────────────────
+
+  ai:
+    vectorstore:
+      pgvector:
+        # Tabla donde se guardan los vectores (embeddings)
+        # Spring AI la crea automáticamente si initialize-schema=true
+        index-type: HNSW        # HNSW = el algoritmo de búsqueda aproximada más rápido
+        distance-type: COSINE_DISTANCE  # Distancia coseno: estándar para embeddings de texto
+        dimensions: 1536        # Tamaño del vector de OpenAI text-embedding-3-small
+        # Si usás otro modelo, cambiar este número
+        initialize-schema: true # Crea la tabla si no existe (útil para desarrollo)
+        # En producción: false (usar migrations de BD)
+
+    # ─────────────────────────────────────────────────────────────────────
+    #! OPENAI — Modelos de lenguaje e embeddings
+    # ─────────────────────────────────────────────────────────────────────
+    openai:
+      # API key de OpenAI
+      # NUNCA hardcodear — siempre variable de entorno
+      api-key: ${OPENAI_API_KEY:}
+
+      chat:
+        options:
+          # Modelo de chat — gpt-4o-mini es la opción más costo/eficiente para empezar
+          # gpt-4o:      más capaz, ~10x más caro
+          # gpt-4o-mini: excelente para la mayoría de los casos, mucho más barato
+          model: gpt-4o-mini
+          temperature: 0.7  # 0=determinista, 1=creativo (0.7 para chatbots generales)
+          max-tokens: 2000  # Máximo de tokens en la respuesta
+
+      embedding:
+        options:
+          # Modelo para generar embeddings (vectorizar texto)
+          # text-embedding-3-small: barato, rápido, 1536 dimensiones
+          # text-embedding-3-large: más preciso, más caro, 3072 dimensiones
+          model: text-embedding-3-small
+
+  # ─────────────────────────────────────────────────────────────────────────
+  #! SERVLET — configuración de uploads
+  # ─────────────────────────────────────────────────────────────────────────
+
+  servlet:
+    multipart:
+      # Habilitar subida de archivos
+      enabled: true
+      # Tamaño máximo por archivo (ajustá según tus necesidades)
+      max-file-size: 50MB
+      # Tamaño máximo total del request (relevante para múltiples archivos)
+      max-request-size: 100MB
+
+# ─────────────────────────────────────────────────────────────────────────────
+#! AWS — Configuración de servicios de Amazon
+# ─────────────────────────────────────────────────────────────────────────────
+
+aws:
+  # Región AWS donde corren tus recursos
+  # us-east-1: Virginia (más barata, más servicios)
+  # sa-east-1: São Paulo (más cercana a Argentina, para producción)
+  region: ${AWS_REGION:us-east-1}
+
+  s3:
+    # Nombre del bucket donde guardamos los documentos subidos por los usuarios
+    # El nombre debe ser globalmente único en todo AWS
+    # Convenio recomendado: nombre-descriptivo-id-cuenta-region
+    bucket-name: ${S3_BUCKET_NAME:smartdoc-documents-dev}
+
+  sqs:
+    # URL de la cola SQS donde publicamos eventos de nuevos documentos
+    # La obtenés desde la consola AWS → SQS después de crear la cola
+    # Formato: https://sqs.REGION.amazonaws.com/ACCOUNT_ID/NOMBRE_COLA
+    queue-url: ${SQS_QUEUE_URL:https://sqs.us-east-1.amazonaws.com/123456789012/smartdoc-processing}
+
+  sns:
+    # ARN del tema SNS para notificaciones
+    # Formato: arn:aws:sns:REGION:ACCOUNT_ID:NOMBRE_TEMA
+    topic-arn: ${SNS_TOPIC_ARN:arn:aws:sns:us-east-1:123456789012:smartdoc-notifications}
+
+# ─────────────────────────────────────────────────────────────────────────────
+#! ACTUATOR — Endpoints de monitoreo y health checks
+# ─────────────────────────────────────────────────────────────────────────────
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Qué endpoints exponer vía HTTP
+        # "*" = todos | lista: "health,info,metrics"
+        # En producción: solo exponer "health" (los demás tienen info sensible)
+        include: health,info,metrics
+  endpoint:
+    health:
+      # show-details: cuando=always muestra los detalles del health check
+      # En producción: cambiá a "when-authorized" para no exponer info interna
+      show-details: always
+
+# ─────────────────────────────────────────────────────────────────────────────
+#! SWAGGER / OPENAPI
+# ─────────────────────────────────────────────────────────────────────────────
+
+springdoc:
+  swagger-ui:
+    # URL de la UI de Swagger: http://localhost:8080/swagger-ui.html
+    path: /swagger-ui.html
+  api-docs:
+    # URL del JSON con la spec: http://localhost:8080/api-docs
+    path: /api-docs
+
+# ─────────────────────────────────────────────────────────────────────────────
+#! LOGGING — Qué nivel de detalle mostrar en los logs
+# ─────────────────────────────────────────────────────────────────────────────
+
+logging:
+  level:
+    # Tu código: INFO = mensajes normales de operación
+    # Niveles (más a menos detalle): TRACE > DEBUG > INFO > WARN > ERROR
+    com.tuusuario.smartdoc: INFO
+
+    # Spring AI: DEBUG en desarrollo para ver las requests al modelo
+    # Cambiá a WARN en producción (evita loguear prompts con info sensible)
+    org.springframework.ai: DEBUG
+
+    # SDK de AWS: WARN = solo avisos y errores (evita llenar la consola)
+    software.amazon.awssdk: WARN
+
+    # SQL de Hibernate: DEBUG para ver las queries (comentar en producción)
+    org.hibernate.SQL: DEBUG
+
+# ═══════════════════════════════════════════════════════════════════════════
+#! SEGURIDAD JWT
+# ═══════════════════════════════════════════════════════════════════════════
+
+security:
+  jwt:
+    # Clave secreta para firmar los tokens JWT (mínimo 32 caracteres para HMAC-SHA256)
+    # En producción: usar variable de entorno JWT_SECRET generada con:
+    # openssl rand -base64 64
+    secret: ${JWT_SECRET:desarrollo-local-secret-key-32chars}
+    # 24 horas en milisegundos (86400 segundos × 1000)
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}

@@ -45,8 +45,19 @@
         <tag/>
         <url/>
     </scm>
+
+    <!--
+       properties — Variables reutilizables en este archivo.
+       Si hay que actualizar una versión, se cambia acá y aplica en todos lados.
+   -->
+
     <properties>
         <java.version>21</java.version>
+        <!-- Spring AI M6: contiene los starters usados en este proyecto -->
+        <spring-ai.version>1.0.0-M6</spring-ai.version>
+
+        <!-- AWS SDK v2: versión más reciente al momento de escribir esta guía -->
+        <awsjavasdk.version>2.25.11</awsjavasdk.version>
     </properties>
 
     <!--*
@@ -69,9 +80,9 @@
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
-                <version>2.0.0-M6</version>
-                <type>pom</type>    <!-- type pom indica que es un BOM, no una librería -->
-                <scope>import</scope> <!-- import: hereda las versiones de este BOM -->
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!--!
@@ -82,13 +93,21 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.20.0</version>
+                <version>${awsjavasdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
         </dependencies>
 
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>spring-milestone</id>
+            <name>Spring Milestone</name>
+            <url>https://repo.spring.io/milestone</url>
+        </repository>
+    </repositories>
 
     <dependencies>
 
@@ -245,24 +264,323 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- ================================================================ -->
+        <!--! SPRING AI — INTELIGENCIA ARTIFICIAL                             -->
+        <!-- ================================================================ -->
+
+        <!--
+            spring-ai-openai-spring-boot-starter
+            Integración con OpenAI (GPT-4o, GPT-4o-mini, etc.).
+            Configura automáticamente el ChatClient y el EmbeddingModel.
+            Con el BOM declarado arriba, no necesita <version>.
+
+            Para cambiar a AWS Bedrock: comentar esto y habilitar el de Bedrock.
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+
+        <!--
+            spring-ai-pgvector-store-spring-boot-starter
+            Vector Store usando la extensión pgvector de PostgreSQL.
+            Permite guardar y buscar embeddings directamente en PostgreSQL.
+            Alternativa a bases vectoriales separadas como Pinecone o Chroma.
+            Ventaja: un solo sistema de base de datos para todo.
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pgvector-store-spring-boot-starter</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+
+        <!--
+            spring-ai-pdf-document-reader
+            Lector de PDFs para Spring AI.
+            Usa Apache PDFBox internamente para extraer texto de PDFs.
+            Permite dividir PDFs en páginas o secciones.
+        -->
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+
+        <!--
+            spring-ai-tika-document-reader
+            Lector de múltiples formatos usando Apache Tika.
+            Soporta: PDF, Word (.docx), Excel (.xlsx), HTML, texto plano, etc.
+            Si Tika puede leerlo, Spring AI puede procesarlo para RAG.
+        -->
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+
+
+        <!-- ================================================================ -->
+        <!--! AWS SDK v2 — SERVICIOS DE AMAZON                               -->
+        <!-- ================================================================ -->
+
+        <!--
+           s3 — Amazon Simple Storage Service
+           Para: subir archivos, descargarlos, listar buckets, generar URLs firmadas.
+           Clases: S3Client, PutObjectRequest, GetObjectRequest, etc.
+           En nuestro proyecto: guardamos los PDFs subidos por los usuarios.
+       -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
+        <!--
+            sqs — Amazon Simple Queue Service
+            Para: enviar mensajes a una cola, recibir y procesar mensajes.
+            Clases: SqsClient, SendMessageRequest, ReceiveMessageRequest, etc.
+            En nuestro proyecto: trigger asíncrono cuando llega un nuevo documento.
+        -->
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+        </dependency>
+
+        <!--
+            sns — Amazon Simple Notification Service
+            Para: notificar a múltiples suscriptores cuando pasa algo.
+            Clases: SnsClient, PublishRequest, SubscribeRequest, etc.
+            En nuestro proyecto: notificar cuando el procesamiento termina.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sns</artifactId>
+        </dependency>
+
+        <!--
+           ec2 — Amazon Elastic Compute Cloud
+           Para: gestionar instancias virtuales (crear, iniciar, detener, terminar).
+           Clases: Ec2Client, RunInstancesRequest, DescribeInstancesRequest, etc.
+       -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ec2</artifactId>
+        </dependency>
+
+        <!--
+           autoscaling — Amazon EC2 Auto Scaling
+           Para: crear grupos de Auto Scaling, políticas de escalado.
+           Clases: AutoScalingClient, CreateAutoScalingGroupRequest, etc.
+       -->
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>autoscaling</artifactId>
+        </dependency>
+
+        <!--
+           elasticloadbalancingv2 — Elastic Load Balancing (versión moderna)
+           "v2" porque soporta Application Load Balancer (moderno).
+           La v1 es Classic LB (obsoleto — no usar en proyectos nuevos).
+           Clases: ElasticLoadBalancingV2Client, CreateLoadBalancerRequest, etc.
+       -->
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>elasticloadbalancingv2</artifactId>
+        </dependency>
+
+        <!--
+            sts — AWS Security Token Service
+            Para: verificar credenciales, asumir roles IAM.
+            En nuestro proyecto: usado en el health check para verificar conectividad con AWS.
+        -->
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+        </dependency>
+
+        <!--
+           rds — Amazon Relational Database Service
+           Para: gestionar instancias RDS programáticamente (listar, snapshots, estado).
+           NO es para hacer queries SQL — eso lo hace JDBC vía spring-boot-starter-data-jpa.
+           Usar solo cuando necesitás automatizar operaciones de infraestructura de BD.
+       -->
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>rds</artifactId>
+        </dependency>
+
+        <!-- ================================================================ -->
+        <!--! SWAGGER / OPENAPI — DOCUMENTACIÓN AUTOMÁTICA DE LA API          -->
+        <!-- ================================================================ -->
+
+        <!--
+           springdoc-openapi-starter-webmvc-ui
+           Genera documentación Swagger automáticamente a partir de tus controllers.
+           Disponible en: http://localhost:8080/swagger-ui.html
+           Muy valorado en entrevistas — muestra que sabés documentar APIs.
+       -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+
+        <!-- ================================================================ -->
+        <!--! UTILIDADES                                                       -->
+        <!-- ================================================================ -->
+
+        <!--
+            lombok
+            Elimina boilerplate de Java con anotaciones:
+            @Getter/@Setter:  genera getters y setters automáticamente
+            @RequiredArgsConstructor: genera constructor con campos final
+            @Slf4j:           crea Logger log = LoggerFactory.getLogger(...)
+            @Builder:         patrón Builder automático
+            scope=provided: solo al compilar, no se incluye en el JAR final.
+        -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!--
+           bucket4j-core
+           Implementa el algoritmo Token Bucket para rate limiting.
+           Permite limitar cuántas requests puede hacer cada usuario por minuto.
+           Crítico para apps con AI — evita que un usuario gaste todo el presupuesto.
+       -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.10.1</version>
+        </dependency>
+
+        <!--
+            caffeine
+            Cache en memoria de alto rendimiento (el más rápido para la JVM).
+            Spring Cache lo detecta automáticamente cuando está en el classpath.
+            Se usa para cachear respuestas de AI y evitar llamadas repetidas.
+        -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <!-- ================================================================ -->
+        <!--! TESTS                                                            -->
+        <!-- ================================================================ -->
+
+        <!--
+            spring-boot-starter-test
+            Para escribir tests unitarios e integración:
+              JUnit 5:     framework de testing estándar de Java
+              Mockito:     simular objetos (mocks) en los tests
+              Spring Test: levantar el contexto de Spring en tests
+              AssertJ:     assertions fluidas y legibles
+            scope=test: solo al correr tests, no en producción.
+        -->
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+        spring-ai-test
+        Herramientas de testing específicas para Spring AI:
+        MockChatModel: simula el modelo AI en tests (sin hacer llamadas reales)
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            spring-security-test
+            Utilidades de testing para Spring Security:
+            @WithMockUser: simula un usuario autenticado en tests de controller
+            SecurityMockMvcRequestPostProcessors: helpers para requests con auth
+            La versión la gestiona el parent de Spring Boot — no necesita <version>
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            h2
+            Base de datos en memoria para los tests unitarios e integración ligera.
+            NO reemplaza PostgreSQL+pgvector (H2 no soporta la extensión vector),
+            pero sí sirve para testear la entidad Document y DocumentRepository
+            sin levantar una base de datos real.
+            La versión la gestiona el parent de Spring Boot.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            spring-boot-testcontainers
+            Integración de Testcontainers con Spring Boot.
+            Permite levantar contenedores Docker reales durante los tests:
+              - PostgreSQL con pgvector para tests de integración de RAG
+              - La extensión pgvector se habilita automáticamente
+            La versión la gestiona el parent de Spring Boot.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            testcontainers: postgresql
+            Driver específico de Testcontainers para PostgreSQL.
+            PostgreSQLContainer levanta un Postgres real en Docker durante el test
+            y lo para cuando termina — tests reproducibles y aislados.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
+            <!--
+                spring-boot-maven-plugin
+                Extiende Maven con comandos de Spring Boot:
+                  mvn spring-boot:run → corre la app directamente
+                  mvn package         → genera un "fat JAR" ejecutable
+
+                ¿Qué es un fat JAR?
+                  Un JAR normal no incluye sus dependencias.
+                  Un "fat JAR" incluye TODO: tu código + Spring Boot + Tomcat
+                  + Jackson + AWS SDK + Spring AI + etc.
+                  Resultado: un solo archivo .jar que llevás a cualquier servidor
+                  y ejecutás con: java -jar smartdoc-ai-platform.jar
+                  Sin instalar nada más que Java.
+            -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <!-- Excluimos Lombok del JAR final (solo sirve al compilar) -->
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -270,42 +588,6 @@
                         </exclude>
                     </excludes>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>default-compile</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                        <configuration>
-                            <annotationProcessorPaths>
-                                <path>
-                                    <groupId>org.projectlombok</groupId>
-                                    <artifactId>lombok</artifactId>
-                                </path>
-                            </annotationProcessorPaths>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-testCompile</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>testCompile</goal>
-                        </goals>
-                        <configuration>
-                            <annotationProcessorPaths>
-                                <path>
-                                    <groupId>org.projectlombok</groupId>
-                                    <artifactId>lombok</artifactId>
-                                </path>
-                            </annotationProcessorPaths>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
