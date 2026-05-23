@@ -131,23 +131,31 @@
         </dependency>
 
         <!--
-            spring-boot-starter-webflux
-            Incluye: Project Reactor (Flux, Mono), servidor Netty reactivo.
-            Necesario para: streaming de respuestas AI con Flux<String>.
-            Se puede usar junto con starter-web sin problema — no reemplaza a Tomcat.
+            reactor-core
+            Librería de programación reactiva de Project Reactor.
+            Necesaria para: Flux<String> en el streaming de respuestas AI.
+
+            ⚠️  POR QUÉ NO usar spring-boot-starter-webflux:
+            Si ponés webflux + web juntos, Spring Boot 3 puede cambiar el
+            servidor a Netty en lugar de Tomcat, lo que rompe la configuración.
+            La solución correcta es: starter-web (Tomcat) + reactor-core (solo Reactor).
+            Spring AI ya incluye reactor-core transitivamente, pero lo declaramos
+            explícitamente para dejar clara la intención.
         -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <!-- La versión la gestiona el BOM de Spring Boot -->
         </dependency>
 
         <!--
-           spring-boot-starter-data-jpa
-           Incluye: Hibernate (ORM), Spring Data (repositorios), transacciones.
-           Permite: @Entity, @Repository, JpaRepository<T, ID>.
-           Simplifica enormemente el acceso a base de datos relacionales.
-       -->
-
+            spring-boot-starter-data-jpa
+            Incluye: Hibernate (ORM), Spring Data (repositorios), transacciones.
+            Permite: @Entity, @Repository, JpaRepository<T, ID>.
+            Simplifica enormemente el acceso a base de datos relacionales.
+            NOTA: el starter de JPA incluye spring-jdbc (JdbcTemplate) automáticamente.
+            No es necesario agregar spring-boot-starter-jdbc por separado.
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -164,6 +172,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
 
         <!--
            spring-boot-starter-cache
@@ -259,6 +268,13 @@
         <!--! BASE DE DATOS                                                    -->
         <!-- ================================================================ -->
 
+        <!--
+            postgresql
+            Driver JDBC para conectar con PostgreSQL.
+            scope=runtime: solo se necesita cuando la app corre, no al compilar.
+            Spring Data JPA lo usa automáticamente para las queries.
+        -->
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -270,18 +286,20 @@
         <!-- ================================================================ -->
 
         <!--
-            spring-ai-openai-spring-boot-starter
-            Integración con OpenAI (GPT-4o, GPT-4o-mini, etc.).
-            Configura automáticamente el ChatClient y el EmbeddingModel.
+            spring-ai-bedrock-ai-spring-boot-starter
+            Integración con AWS Bedrock via la Converse API unificada.
+            Auto-configura dos beans clave:
+              - BedrockProxyChatModel → el ChatClient que usás en los servicios
+              - BedrockTitanEmbeddingModel → para vectorizar texto con Titan V2
+            Usa las credenciales AWS del CLI (aws configure) automáticamente.
+            Los datos NUNCA salen de tu cuenta de AWS — ideal para compliance.
             Con el BOM declarado arriba, no necesita <version>.
-
-            Para cambiar a AWS Bedrock: comentar esto y habilitar el de Bedrock.
         -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
-            <version>${spring-ai.version}</version>
+            <artifactId>spring-ai-bedrock-ai-spring-boot-starter</artifactId>
         </dependency>
+
 
         <!--
             spring-ai-pgvector-store-spring-boot-starter
@@ -293,7 +311,6 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-pgvector-store-spring-boot-starter</artifactId>
-            <version>${spring-ai.version}</version>
         </dependency>
 
         <!--
@@ -302,30 +319,38 @@
             Usa Apache PDFBox internamente para extraer texto de PDFs.
             Permite dividir PDFs en páginas o secciones.
         -->
-
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-pdf-document-reader</artifactId>
-            <version>${spring-ai.version}</version>
         </dependency>
 
         <!--
-            spring-ai-tika-document-reader
-            Lector de múltiples formatos usando Apache Tika.
-            Soporta: PDF, Word (.docx), Excel (.xlsx), HTML, texto plano, etc.
-            Si Tika puede leerlo, Spring AI puede procesarlo para RAG.
-        -->
-
+             spring-ai-tika-document-reader
+             Lector de múltiples formatos usando Apache Tika.
+             Soporta: PDF, Word (.docx), Excel (.xlsx), HTML, texto plano, etc.
+             Si Tika puede leerlo, Spring AI puede procesarlo para RAG.
+         -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-tika-document-reader</artifactId>
-            <version>${spring-ai.version}</version>
         </dependency>
 
 
         <!-- ================================================================ -->
         <!--! AWS SDK v2 — SERVICIOS DE AMAZON                               -->
         <!-- ================================================================ -->
+
+        <!--
+            bedrockruntime — AWS Bedrock Runtime SDK
+            Necesario para: BedrockRuntimeException en GlobalExceptionHandler
+            y cualquier llamada directa a la Converse API del SDK.
+            spring-ai-bedrock-ai-spring-boot-starter lo incluye transitivamente,
+            pero lo declaramos explícitamente para la importación directa.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bedrockruntime</artifactId>
+        </dependency>
 
         <!--
            s3 — Amazon Simple Storage Service
@@ -557,7 +582,6 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
